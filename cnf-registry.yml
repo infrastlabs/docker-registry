@@ -6,7 +6,7 @@ storage:
   cache:
     blobdescriptor: inmemory
   filesystem:
-    rootdirectory: /tmp/lib/registry
+    rootdirectory: /var/lib/registry
 http:
   addr: :5000
   headers:
@@ -16,3 +16,15 @@ health:
     enabled: true
     interval: 10s
     threshold: 3
+auth:
+ htpasswd:
+   realm: basic-realm
+   path: /htpasswd    
+list:
+  # apis: http://172.25.21.68:80
+  # apis: http://172.25.21.68
+  # apis: http://172.25.20.115 #errHarbor
+  apis: http://localhost:5000
+  user: admin
+  pass: xxx
+  size: true
