@@ -244,7 +244,7 @@ type Configuration struct {
 	} `yaml:"policy,omitempty"`
 
 	List struct {
-		Apis string `yaml:"apis,omitempty"`
+		// Apis string `yaml:"apis,omitempty"` 
 		User string `yaml:"user,omitempty"`
 		Pass string `yaml:"pass,omitempty"`
 		Size bool   `yaml:"size,omitempty"`

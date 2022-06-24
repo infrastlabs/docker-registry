@@ -12,13 +12,13 @@ import (
 	"strings"
 	"syscall"
 	"time"
-	"flag"
-	"encoding/json"
-	"html/template"
-	"sort"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
+	// "flag"
+	// "encoding/json"
+	// "html/template"
+	// "sort"
+	// "github.com/google/go-containerregistry/pkg/authn"
+	// "github.com/google/go-containerregistry/pkg/name"
+	// "github.com/google/go-containerregistry/pkg/v1/remote"
 
 	logrus_bugsnag "github.com/Shopify/logrus-bugsnag"
 
@@ -140,165 +140,22 @@ var ServeCmd = &cobra.Command{
 		}
 		http.Handle("/metrics", metrics.Handler())
 
+		//
+		//alive22("/abc", registry.server.Handler)
+
 		//UI
 		//http.Handle("list", metrics.Handler())
+		// TODO: 首页跳转
 		/* http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(r.URL.Path))
+			w.Write([]byte("r.URL.Path"))
 		}) */
-		http.HandleFunc("/list", update)
+		// http.HandleFunc("/list2", imageList2)
 
 		if err = registry.ListenAndServe(); err != nil {
 			log.Fatalln(err)
 		}
 	},
 }
-
-var (
-	addr = flag.String("addr0", ":8080", "ui address")
-	apis = flag.String("api0", "http://172.25.21.68", "api address")
-	user = flag.String("user0", "admin", "registry user")
-	pass = flag.String("pass0", "xxx", "registry pass")
-	size = flag.Bool("size0", false, "registry size") //or: req's param
-	tout = flag.Duration("tout0", time.Second, "api cache timeout")
-	host string // host:port of api server
-)
-func update(w http.ResponseWriter, r *http.Request) {
-// func update() error {
-	/* res, err := http.Get(*apis + "/v2/_catalog")	
-	if err != nil {
-		return err
-	} */
-	//生成client 参数为默认
-	client := &http.Client{}
-	url := *apis + "/v2/_catalog"
-	req, err := http.NewRequest("GET", url, nil)
-	req.SetBasicAuth(*user, *pass)//设置需要认证的username和password
-	if err != nil {
-		panic(err)
-	}
-
-	//处理返回结果
-	res, _ := client.Do(req)	
-	// TODO: check status
-	var catalog struct {
-		Repos []string `json:"repositories"`
-	}
-	if err := json.NewDecoder(res.Body).Decode(&catalog); err != nil {
-		return 
-	}
-	if err := res.Body.Close(); err != nil {
-		return 
-	}
-
-	data := make(map[string][]string, len(catalog.Repos))
-
-	for _, name := range catalog.Repos {
-		// res, err := http.Get(*apis + "/v2/" + name + "/tags/list")
-		// if err != nil {
-		// 	return err
-		// }
-
-		//生成client 参数为默认
-		client := &http.Client{}
-		url := *apis + "/v2/" + name + "/tags/list"
-		req, err := http.NewRequest("GET", url, nil)
-		req.SetBasicAuth(*user,*pass)//设置需要认证的username和password
-		if err != nil {
-			panic(err)
-		}
-	
-		//处理返回结果
-		res, _ := client.Do(req)
-		// defer res.Body.Close()
-		// body, err := ioutil.ReadAll(res.Body)
-		// fmt.Printf("%s\n",body)		
-
-
-		// TODO: check status
-		var tags struct {
-			Name string   `json:"name"`
-			Tags []string `json:"tags"`
-		}
-		if err := json.NewDecoder(res.Body).Decode(&tags); err != nil {
-			return 
-		}
-		data[name] = tags.Tags
-		if err := res.Body.Close(); err != nil {
-			return 
-		}
-	}
-
-	auth := remote.WithAuth(authn.FromConfig(authn.AuthConfig{
-		Username: *user,
-		Password: *pass,
-	}))
-	data2 := make([]string, 0, len(catalog.Repos))
-	for repo, tags := range data {
-		for _, tag := range tags {
-			// data2 = append(data2, host+"/"+repo+":"+tag)
-			//data2 = append(data2, repo+":"+tag)
-			if true!=*size {
-				data2 = append(data2, repo+":"+tag)
-			} else {
-				tagName, _ := name.NewTag(host+"/"+repo+":"+tag)
-				img, err := remote.Image(tagName, auth)
-				if err != nil {
-					println("causing failure " + err.Error())
-					//return nil
-					data2 = append(data2, repo+":"+tag+" #(errSize)")
-				} else {
-
-					//digest, _ := img.Digest()
-					layers, _ := img.Layers()
-
-					var imgSize int64
-					for _, layer := range layers {
-						size, _ := layer.Size()
-						imgSize += size
-					}
-
-					data2 = append(data2, repo+":"+tag+" #("+ByteCountSI(imgSize)+")")
-				}
-			}
-		}
-	}
-	sort.Strings(data2)
-
-	if err := htmlTPL.Execute(w, data2); err != nil {
-		println("causing failure " + err.Error())
-	}
-	return 
-}
-var htmlTPL = template.Must(template.New("").Parse(`<!DOCTYPE html>
-<html lang="en" dir="ltr">
-	<head>
-		<meta charset="utf-8">
-		<title>Registry Listing</title>
-	</head>
-	<body>
-		<ul>
-		{{- range .}}
-			<li>{{.}}</li>
-		{{- else}}<li>No Repositories Found</li>{{end}}
-		</ul>
-	</body>
-</html>`))
-
-
-func ByteCountSI(b int64) string {
-	const unit = 1000
-	if b < unit {
-		return fmt.Sprintf("%d B", b)
-	}
-	div, exp := int64(unit), 0
-	for n := b / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB",
-		float64(b)/float64(div), "kMGTPE"[exp])
-}
-
 
 
 // A Registry represents a complete instance of the registry.
@@ -328,9 +185,10 @@ func NewRegistry(ctx context.Context, config *configuration.Configuration) (*Reg
 	// can only be called once per process.
 	app.RegisterHealthChecks()
 	handler := configureReporting(app)
-	handler = alive("/", handler)
+	handler = alive("/", handler, config)
+	//handler = alive22("/abc", handler)//+
 	handler = health.Handler(handler)
-	handler = panicHandler(handler)
+	handler = panicHandler(handler) //
 	if !config.Log.AccessLog.Disabled {
 		handler = gorhandlers.CombinedLoggingHandler(os.Stdout, handler)
 	}
@@ -609,11 +467,29 @@ func panicHandler(handler http.Handler) http.Handler {
 // is passed to the provided handler. There is no guarantee of anything but
 // that the server is up. Wrap with other handlers (such as health.Handler)
 // for greater affect.
-func alive(path string, handler http.Handler) http.Handler {
+func alive(path string, handler http.Handler, config *configuration.Configuration) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == path {
 			w.Header().Set("Cache-Control", "no-cache")
 			w.WriteHeader(http.StatusOK)
+
+			// w.Write([]byte("r.URL.Path"))
+			imageList(w, r, config)
+			return
+
+		}
+
+		handler.ServeHTTP(w, r)
+	})
+}
+//sam add
+func alive22(path string, handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == path {
+			w.Header().Set("Cache-Control", "no-cache")
+			w.WriteHeader(http.StatusOK)
+
+			w.Write([]byte("r.URL.Path"))
 			return
 		}
 
