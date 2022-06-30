@@ -1,0 +1,53 @@
+# https://docs.docker.com/registry/configuration/#list-of-configuration-options
+version: 0.1
+log:
+  fields:
+    service: registry
+storage:
+  cache:
+    blobdescriptor: inmemory #redis
+  # filesystem:
+  #   rootdirectory: /tmp/var/lib/registry
+  delete:
+    enabled: true
+  s3:
+    #types: filesystem azure gcs s3 swift oss #inmemory
+    #keyid: mykeyid #encrypt: true #secure: true
+    #multipartcopychunksize: 33554432 #multipartcopymaxconcurrency: 100 #multipartcopythresholdsize: 33554432
+    accesskey: admin #Minio用户名/密码
+    secretkey: xxx
+    region: us-east-1 #region参数可随意
+    regionendpoint: http://172.25.21.66:29000 #http://172.16.0.2:9000 #对外访问地址，填写keepalived中对外暴露vip地址
+    bucket: registry #minio中的bucket名称(需提前创建)
+    encrypt: false #
+    secure: false #
+    v4auth: true
+    chunksize: 5242880
+    rootdirectory: /
+
+############# 
+http:
+  addr: :5000
+  # prefix: /my/nested/registry/
+  secret: a-secret-for-local-development
+  headers:
+    X-Content-Type-Options: [nosniff]
+auth:
+ htpasswd:
+   realm: basic-realm
+   path: /tmp/htpasswd
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3
+
+# 拓展配置项
+list:
+  # apis: http://172.25.21.68:80
+  # apis: http://172.25.21.68
+  # apis: http://172.25.20.115 #errHarbor
+  # apis: http://localhost:8143 #TODO 直接取本机127.0.0.1:port; export REGISTRY_HTTP_ADDR=0.0.0.0:8143
+  user: admin
+  pass: admin123
+  size: true

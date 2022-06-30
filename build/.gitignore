@@ -1,0 +1,5 @@
+docker-registry
+certs-san/*
+!openssl.cnf
+!test.registry.ssl.crt
+!test.registry.ssl.key
