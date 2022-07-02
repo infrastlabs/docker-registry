@@ -1,0 +1,27 @@
+# https://www.cnblogs.com/adolfmc/p/9197026.html
+version: '3.3'
+services:
+  registry:
+    container_name: docker-registry
+    restart: always
+    image: registry.cn-shenzhen.aliyuncs.com/infrastlabs/docker-registry
+    entrypoint: sh
+    command: 
+      - -c
+      - docker-registry serve /etc/docker/registry/config.yml
+    network_mode: host
+    # ports:
+    #   - 5000:5000
+    volumes:
+      - ./docker-registry:/bin/docker-registry
+      - ./registry.yml:/etc/docker/registry/config.yml
+      - ./htpasswd:/tmp/htpasswd
+      - ./certs:/certs
+      - ./data/:/tmp/var/lib/registry/
+    environment:
+      # - REGISTRY_AUTH=htpasswd
+      # - REGISTRY_AUTH_HTPASSWD_REALM=Registry Realm
+      # - REGISTRY_AUTH_HTPASSWD_PATH=/htpasswd
+      - REGISTRY_HTTP_ADDR=:8143 #0.0.0.0:8143
+      - REGISTRY_HTTP_TLS_CERTIFICATE=/certs/test.registry.ssl.crt
+      - REGISTRY_HTTP_TLS_KEY=/certs/test.registry.ssl.key 

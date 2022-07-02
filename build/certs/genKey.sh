@@ -1,7 +1,7 @@
 #!/bin/bash
 cur=$(cd "$(dirname "$0")"; pwd)
 DOMAIN=$1 #"test.registry.ssl"
-test -z "$DOMAIN" && exit 1
+test -z "$DOMAIN" && DOMAIN="test.registry.ssl" #exit 1
 
 # docker 20.10+
 # 问题
@@ -12,13 +12,12 @@ test -z "$DOMAIN" && exit 1
 ######################################################################
 # 一：创建一个自建域名证书。
 # 以下是registry服务端的服务器生成SAN证书的方式
-mkdir -p $cur/certs-san
-cd $cur/certs-san
-touch openssl.cnf
-cat /etc/ssl/openssl.cnf > openssl.cnf
+# # mkdir -p $cur/certs; cd $cur/certs
+# touch openssl.cnf
+# cat /etc/ssl/openssl.cnf > openssl.cnf
 
 # # 修改 操作目录的openssl.cnf
-# vi $cur/certs-san/openssl.cnf
+# vi $cur/certs/openssl.cnf
 # # 修改如下 （去掉129 行的# 添加 两行，可以写多个域名 ）
 # 129 req_extensions = v3_req # The extensions to add to a certificate request
 # [ alt_names ]
@@ -29,7 +28,7 @@ cat /etc/ssl/openssl.cnf > openssl.cnf
 # https://blog.csdn.net/k_young1997/article/details/104425743
 cd /root
 openssl rand -writerand .rnd
-cd $cur/certs-san
+# cd $cur/certs
 openssl genrsa -out ca.key 2048
 openssl req -x509 -new -nodes -key ca.key -subj "/CN=example.ca.com" -days 5000 -out ca.crt
 
@@ -50,13 +49,14 @@ openssl req -new -sha256 \
 -out $DOMAIN.csr
 
 # 生成证书（这里用的ca）
+DOMAIN02=$DOMAIN #*.ssl #*.*.ssl
 openssl x509 -req -days 365000 \
 -in $DOMAIN.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
--extfile <(printf "subjectAltName=DNS:$DOMAIN") \
+-extfile <(printf "subjectAltName=DNS:$DOMAIN02") \
 -out $DOMAIN.crt
 
 # 当前复用的ca.key
 # cp ca.key $DOMAIN.key
 
 
-# +tls_sanKey.md
+# +genKey.md
