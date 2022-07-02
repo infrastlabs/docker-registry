@@ -19,7 +19,7 @@ import (
 	// "github.com/google/go-containerregistry/pkg/authn"
 	// "github.com/google/go-containerregistry/pkg/name"
 	// "github.com/google/go-containerregistry/pkg/v1/remote"
-	"cn.dev.registry-list/conf"
+	"cn.dev.docker-registry/conf"
 
 	logrus_bugsnag "github.com/Shopify/logrus-bugsnag"
 

@@ -1,4 +1,4 @@
-module cn.dev.registry-list
+module cn.dev.docker-registry
 
 go 1.13
 
