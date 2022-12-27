@@ -210,6 +210,12 @@ var htmlTPL = template.Must(template.New("").Parse(`<!DOCTYPE html>
 		<title>Registry Listing</title>
 	</head>
 	<body>
+		API:
+		<ul>
+			<li><a target="_blank" href="https://docs.docker.com/registry/spec/api/">/v2/api</a></li>
+			<li><a target="_blank" href="/v2/_catalog">/v2/_catalog</a></li>
+		</ul>
+		PUBLIC:
 		<ul>
 		{{- range .}}
 			<li>{{.}}</li>
