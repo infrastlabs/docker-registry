@@ -41,6 +41,7 @@ import (
 	"github.com/distribution/distribution/v3/registry/listener"
 	"github.com/distribution/distribution/v3/uuid"
 	"github.com/distribution/distribution/v3/version"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 // a map of TLS cipher suite names to constants in https://golang.org/pkg/crypto/tls/#pkg-constants
@@ -124,7 +125,8 @@ var ServeCmd = &cobra.Command{
 			cmd.Usage()
 			os.Exit(1)
 		}
-		fmt.Println("config2.List.User: "+config2.List.User)
+		conf2= config2
+		fmt.Println("config2.List.User: "+conf2.List.User)
 
 		if config.HTTP.Debug.Addr != "" {
 			go func(addr string) {
@@ -135,7 +137,7 @@ var ServeCmd = &cobra.Command{
 			}(config.HTTP.Debug.Addr)
 		}
 
-		registry, err := NewRegistry(ctx, config, config2)
+		registry, err := NewRegistry(ctx, config)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -158,9 +160,14 @@ var ServeCmd = &cobra.Command{
 		}) */
 		// http.HandleFunc("/list2", imageList2)
 
+		// goRoutine: backgrounds' img size count. (before listen)
+		tunnelDetailsMap= cmap.New()
+		go syncDBEndpoint() //entry
+
 		if err = registry.ListenAndServe(); err != nil {
 			log.Fatalln(err)
 		}
+
 	},
 }
 
@@ -174,7 +181,7 @@ type Registry struct {
 }
 
 // NewRegistry creates a new registry from a context and configuration struct.
-func NewRegistry(ctx context.Context, config *configuration.Configuration, config2 *conf.Configuration) (*Registry, error) {
+func NewRegistry(ctx context.Context, config *configuration.Configuration) (*Registry, error) {
 	var err error
 	ctx, err = configureLogging(ctx, config)
 	if err != nil {
@@ -192,7 +199,7 @@ func NewRegistry(ctx context.Context, config *configuration.Configuration, confi
 	// can only be called once per process.
 	app.RegisterHealthChecks()
 	handler := configureReporting(app)
-	handler = alive("/", handler, config2) //Alter
+	handler = indexImgList("/", handler) //Alter
 	handler = health.Handler(handler)
 	handler = panicHandler(handler) //
 	if !config.Log.AccessLog.Disabled {
@@ -468,19 +475,15 @@ func panicHandler(handler http.Handler) http.Handler {
 	})
 }
 
-// alive simply wraps the handler with a route that always returns an http 200
-// response when the path is matched. If the path is not matched, the request
-// is passed to the provided handler. There is no guarantee of anything but
-// that the server is up. Wrap with other handlers (such as health.Handler)
-// for greater affect.
-func alive(path string, handler http.Handler, config *conf.Configuration) http.Handler {
+// indexImgList 
+func indexImgList(path string, handler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == path {
 			w.Header().Set("Cache-Control", "no-cache")
 			w.WriteHeader(http.StatusOK)
 
 			// w.Write([]byte("r.URL.Path"))
-			imageList(w, r, config)
+			imageList(w, r)
 			return
 
 		}

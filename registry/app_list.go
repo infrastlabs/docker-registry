@@ -1,24 +1,28 @@
 package registry
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 
 	"crypto/tls"
-	"flag"
 	"encoding/json"
+	"flag"
 	"html/template"
 	"sort"
 	"strings"
+	"time"
+
 	//"strconv"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	// "github.com/distribution/distribution/v3/configuration"
 	configuration "cn.dev.docker-registry/conf"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 var (
@@ -29,7 +33,44 @@ var (
 	size = flag.Bool("size", true, "registry size") //or: req's param
 	//tout = flag.Duration("tout", time.Second, "api cache timeout")
 	apis, host string // host:port of api server
+
+	conf2 *configuration.Configuration
+	tunnelDetailsMap  cmap.ConcurrentMap
 )
+
+// 后台同步imgListSize
+//  1.刷入所有列表img_ver；
+//  2.判断one.size是否就绪，无则读取;
+func syncDBEndpoint() {
+	for {
+		_, err:= getRepoTags(conf2) //repoTags
+		if nil!=err {
+			// w.Write([]byte("getRepoTags err:"+err.Error()))
+			// return
+			continue
+		}
+
+		countImgSize(conf2)
+
+		time.Sleep(3*time.Second) //60
+	}
+
+	// tunnelDetailsMap.Set(key, tunnel)
+	/* if item, ok := service.tunnelDetailsMap.Get(key); ok {
+		tunnelDetails := item.(*portainer.TunnelDetails)
+		return tunnelDetails
+	} */
+
+	/* for item := range service.tunnelDetailsMap.IterBuffered() {
+		tunnel := item.Val.(*portainer.TunnelDetails)
+		if tunnel.Port == port {
+			return service.getUnusedPort()
+		}
+	} */
+
+	// return
+}
+
 func parseArgs(config *configuration.Configuration) {
 	flag.Parse()
 	//apis= config.List.Apis 
@@ -79,7 +120,7 @@ func getClient(config *configuration.Configuration) (*http.Client) {
 	return client
 }
 
-func doGet(client *http.Client, uri string, config *configuration.Configuration)(*http.Response, error){
+func doGet(client *http.Client, uri string)(*http.Response, error){
 	url := apis + uri
 	req, err := http.NewRequest("GET", url, nil)
 	req.SetBasicAuth(*user, *pass)//设置需要认证的username和password
@@ -90,7 +131,8 @@ func doGet(client *http.Client, uri string, config *configuration.Configuration)
 	//处理返回结果
 	return client.Do(req)
 }
-func imageList(w http.ResponseWriter, r *http.Request, config *configuration.Configuration) {
+
+func getRepoTags(config *configuration.Configuration) ([]string, error) {
 	// fmt.Println("===config.List.Apis:  "+config.List.Apis)
 	parseArgs(config)
 	// fmt.Println("==============host:  "+host+config.HTTP.Addr)
@@ -100,38 +142,38 @@ func imageList(w http.ResponseWriter, r *http.Request, config *configuration.Con
 	
 	//catalog获取仓库列表
 	uri:="/v2/_catalog"
-	rsp, err := doGet(client, uri, config)
+	rsp, err := doGet(client, uri)
 	if err != nil {
 		// panic(err)
-		w.Write([]byte("RequestError, uri:"+uri))
-		return
+		// w.Write([]byte("RequestError, uri:"+uri))
+		return nil, errors.New("RequestError, uri:"+uri) //+err.Error()
 	}
 	//fmt.Println("rsp.StatusCode "+rsp.StatusCode)
 	if 200!=rsp.StatusCode {
-		w.Write([]byte("RequestError, Status:"+rsp.Status)) //strconv.Itoa(rsp.StatusCode)
-		return
+		// w.Write([]byte("RequestError, Status:"+rsp.Status)) //strconv.Itoa(rsp.StatusCode)
+		return nil, errors.New("RequestError, Status:"+rsp.Status)
 	}
 	// TODO: check status
 	var catalog struct {
 		Repos []string `json:"repositories"`
 	}
 	if err := json.NewDecoder(rsp.Body).Decode(&catalog); err != nil {
-		return 
+		return nil, err
 	}
 	if err := rsp.Body.Close(); err != nil {
-		return 
+		return nil, err
 	}
 
 	//tags/list获取各img的标签列表
-	imgMap := make(map[string][]string, len(catalog.Repos))
+	imgMap := make(map[string] []string, len(catalog.Repos)) //[]string >> map[string] []string
 	for _, name := range catalog.Repos {
 		//生成client 参数为默认
 		//client := &http.Client{}
 		uri= "/v2/" + name + "/tags/list"
-		rsp, err := doGet(client, uri, config)
+		rsp, err := doGet(client, uri)
 		if err != nil {
-			w.Write([]byte("RequestError, uri:"+uri))
-			return
+			// w.Write([]byte("RequestError, uri:"+uri))
+			return nil, errors.New("RequestError, uri:"+uri)
 		}
 
 		/* defer rsp.Body.Close()
@@ -144,14 +186,45 @@ func imageList(w http.ResponseWriter, r *http.Request, config *configuration.Con
 			Tags []string `json:"tags"`
 		}
 		if err := json.NewDecoder(rsp.Body).Decode(&tags); err != nil {
-			return 
+			return nil, err
 		}
 		imgMap[name] = tags.Tags
 		if err := rsp.Body.Close(); err != nil {
-			return 
+			return nil, err
 		}
 	}
 
+	// detailTags := make([]string, 0, len(catalog.Repos))
+	repoTags := make([]string, 0) //[]string
+	for oneImg, tags := range imgMap {
+		for _, tag := range tags {
+			repoTags = append(repoTags, oneImg+":"+tag)
+		}
+	}
+	sort.Strings(repoTags)
+
+	/* if nil==tunnelDetailsMap {
+		tunnelDetailsMap= cmap.New()
+	} */
+	/* return &Service{
+		tunnelDetailsMap: cmap.New(), //ref pt's
+		dataStore:        dataStore,
+		shutdownCtx:      shutdownCtx,
+	} */
+
+	for _, imgtag := range repoTags {
+		if !tunnelDetailsMap.Has(imgtag) { //不存在时才put, 免val覆盖
+			tunnelDetailsMap.Set(imgtag, "") //nil> init ""
+		}
+
+		// TODO; if img deleted > loop gMap drop non-exist
+	}
+
+	return repoTags, nil
+}
+
+func countImgSize(config *configuration.Configuration) (error) {
+	var err error
 	//auth remote.Option
 	auth := remote.WithAuth(authn.FromConfig(authn.AuthConfig{
 		Username: *user,
@@ -162,38 +235,76 @@ func imageList(w http.ResponseWriter, r *http.Request, config *configuration.Con
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	trans := remote.WithTransport(transport)
-	//遍历各img所有tags的layer层信息（获取size）
-	detailTags := make([]string, 0, len(catalog.Repos))
-	for oneImg, tags := range imgMap {
-		for _, tag := range tags {
-			if true!=*size {
-				detailTags = append(detailTags, oneImg+":"+tag)
-			} else {
-				tagName, _ := name.NewTag(host+"/"+oneImg+":"+tag) //host > apis
-				//remote获取layer层信息: http or https
-				var img v1.Image
-				if ""!=config.HTTP.TLS.Certificate {
-					img, err = remote.Image(tagName, auth, trans) //https
-				} else {
-					img, err = remote.Image(tagName, auth)
-				}
-				if err != nil {
-					println("causing failure " + err.Error())
-					//return nil
-					detailTags = append(detailTags, oneImg+":"+tag+" (errSize)")
-				} else {
-					//digest, _ := img.Digest()
-					layers, _ := img.Layers()
 
-					var imgSize int64
-					for _, layer := range layers {
-						size, _ := layer.Size()
-						imgSize += size
-					}
-					detailTags = append(detailTags, oneImg+":"+tag+" ("+ByteCountSI(imgSize)+")")
+	//遍历各img所有tags的layer层信息（获取size）
+	// detailTags := make([]string, 0) //[]string
+	// for _, imgtag := range repoTags {
+	for item := range tunnelDetailsMap.IterBuffered() {
+		imgtag:= item.Key
+		val:= item.Val.(string)
+		if ""!=val {
+			continue
+		}
+
+		msg:= fmt.Sprintf("==init cntSize: %s, val: %s", imgtag, val)
+		println(msg)
+
+		// detailTags = append(detailTags, imgtag)
+		// tunnel := item.Val.(*portainer.TunnelDetails)
+		if true!=*size {
+			// detailTags = append(detailTags, imgtag)
+		} else {
+			tagName, _ := name.NewTag(host+"/"+imgtag) //host > apis
+			//remote获取layer层信息: http or https
+			var img v1.Image
+			if ""!=config.HTTP.TLS.Certificate {
+				img, err = remote.Image(tagName, auth, trans) //https
+			} else {
+				img, err = remote.Image(tagName, auth)
+			}
+			if err != nil {
+				println("causing failure " + err.Error())
+				//return nil
+				// detailTags = append(detailTags, imgtag+" (errSize)")
+			} else {
+				//digest, _ := img.Digest()
+				layers, _ := img.Layers()
+
+				var imgSize int64
+				for _, layer := range layers {
+					size, _ := layer.Size()
+					imgSize += size
 				}
+				// detailTags = append(detailTags, imgtag+" ("+ByteCountSI(imgSize)+")")
+				tunnelDetailsMap.Set(imgtag, ByteCountSI(imgSize)) //just replace the same key.
 			}
 		}
+	}
+
+	return nil
+}
+
+func imageList(w http.ResponseWriter, r *http.Request) {
+	/* _, err:= getRepoTags(conf2) //repoTags
+	if nil!=err {
+		w.Write([]byte("getRepoTags err:"+err.Error()))
+		return
+	} */
+
+	/* // config:= conf2
+	countImgSize(conf2) */
+	
+	//遍历各img所有tags的layer层信息（获取size）
+	detailTags := make([]string, 0) //[]string
+	// for _, imgtag := range repoTags {
+	for item := range tunnelDetailsMap.IterBuffered() {
+		imgtag:= item.Key
+		size:= item.Val.(string)
+		if ""==size {
+			size= "errSize"
+		}
+		one:= fmt.Sprintf("%s (%s)", imgtag, size)
+		detailTags = append(detailTags, one)
 	}
 	sort.Strings(detailTags)
 
