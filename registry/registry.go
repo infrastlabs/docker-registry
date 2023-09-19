@@ -19,7 +19,7 @@ import (
 	// "github.com/google/go-containerregistry/pkg/authn"
 	// "github.com/google/go-containerregistry/pkg/name"
 	// "github.com/google/go-containerregistry/pkg/v1/remote"
-	"cn.dev.docker-registry/conf"
+	"gitee.com/g-devops/docker-registry/conf"
 
 	logrus_bugsnag "github.com/Shopify/logrus-bugsnag"
 
@@ -126,7 +126,9 @@ var ServeCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		conf2= config2
-		fmt.Println("config2.List.User: "+conf2.List.User)
+		fmt.Println("config.HTTP.Addr[HTTP/HTTPS]: "+conf2.HTTP.Addr)
+		fmt.Println("config.Extend.HttpAddr[Ext.HTTP]: "+conf2.Extend.HttpAddr)
+		fmt.Println("config.Extend.List.User[UserName]: "+conf2.Extend.List.User)
 
 		if config.HTTP.Debug.Addr != "" {
 			go func(addr string) {
@@ -161,8 +163,9 @@ var ServeCmd = &cobra.Command{
 		// http.HandleFunc("/list2", imageList2)
 
 		// goRoutine: backgrounds' img size count. (before listen)
-		tunnelDetailsMap= cmap.New()
-		go syncDBEndpoint() //entry
+		tagsizeMap= cmap.New()
+		countMap= cmap.New()
+		go doRefreshTagsize() //entry
 
 		if err = registry.ListenAndServe(); err != nil {
 			log.Fatalln(err)
@@ -323,6 +326,22 @@ func (registry *Registry) ListenAndServe() error {
 
 		ln = tls.NewListener(ln, tlsConf)
 		dcontext.GetLogger(registry.app).Infof("listening on %v, tls", ln.Addr())
+
+		// SecondHttpPort
+		addr:= conf2.Extend.HttpAddr //":8000"
+		if (":0"!=addr){
+			ln2, err := listener.NewListener(config.HTTP.Net, addr) //DO extend.httpaddr 8000 @conf
+			if err != nil {
+				return err
+			}
+			/* err= registry.server.Serve(ln2)
+			if err != nil {
+				return err
+			} */
+			go func() {
+				registry.server.Serve(ln2)
+			}()
+		}
 	} else {
 		dcontext.GetLogger(registry.app).Infof("listening on %v", ln.Addr())
 	}
