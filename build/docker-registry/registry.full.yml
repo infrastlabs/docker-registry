@@ -1,0 +1,127 @@
+# https://docs.docker.com/registry/configuration/#list-of-configuration-options
+# https://distribution.github.io/distribution/about/configuration/#list-of-configuration-options
+version: 0.1
+log:
+  level: debug
+  formatter: text
+  accesslog:
+    disabled: true
+  fields:
+    service: registry
+    environment: staging
+  # hooks:
+loglevel: debug # deprecated: use "log"
+storage:
+  filesystem:
+    rootdirectory: /var/lib/registry
+    maxthreads: 100
+  # s3:
+  #   accesskey: awsaccesskey
+  #   secretkey: awssecretkey
+  #   region: us-west-1
+  #   regionendpoint: http://myobjects.local
+  #   forcepathstyle: true
+  #   accelerate: false
+  #   bucket: bucketname
+  #   encrypt: true
+  #   keyid: mykeyid
+  #   secure: true
+  #   v4auth: true
+  #   chunksize: 5242880
+  #   multipartcopychunksize: 33554432
+  #   multipartcopymaxconcurrency: 100
+  #   multipartcopythresholdsize: 33554432
+  #   rootdirectory: /s3/object/name/prefix
+  #   usedualstack: false
+  #   loglevel: debug
+  inmemory:  # This driver takes no parameters
+  delete:
+    enabled: false
+  redirect:
+    disable: false
+  cache:
+    blobdescriptor: redis
+    blobdescriptorsize: 10000
+  maintenance:
+    uploadpurging:
+      enabled: true
+      age: 168h
+      interval: 24h
+      dryrun: false
+    readonly:
+      enabled: false
+auth:
+  htpasswd:
+    realm: basic-realm
+    path: /path/to/htpasswd
+  silly:
+    realm: silly-realm
+    service: silly-service
+  # token:
+middleware:
+  registry:
+  repository:
+  storage:
+  storage:
+http:
+  addr: localhost:5000
+  host: https://myregistryaddress.org:5000
+  prefix: /my/nested/registry/
+  secret: asecretforlocaldevelopment
+  relativeurls: false
+  draintimeout: 60s
+  tls:
+    key: /path/to/x509/private
+    certificate: /path/to/x509/public
+    clientcas:
+      - /path/to/ca.pem
+      - /path/to/another/ca.pem
+    # letsencrypt:
+  debug:
+    addr: localhost:5001
+    prometheus:
+      enabled: true
+      path: /metrics
+  headers:
+    X-Content-Type-Options: [nosniff]
+  http2:
+    disabled: false
+notifications:
+  events:
+    includereferences: true
+  endpoints:
+redis:
+  addr: localhost:6379
+  password: asecret
+  db: 0
+  dialtimeout: 10ms
+  readtimeout: 10ms
+  writetimeout: 10ms
+  pool:
+    maxidle: 16
+    maxactive: 64
+    idletimeout: 300s
+  tls:
+    enabled: false
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3
+  file:
+    - file: /path/to/checked/file
+      interval: 10s
+  http:
+  tcp:
+proxy:
+  remoteurl: https://registry-1.docker.io
+  username: [username]
+  password: [password]
+  ttl: 168h
+validation:
+  manifests:
+    urls:
+      allow:
+        - ^https?://([^/]+\.)*example\.com/
+      deny:
+        - ^https?://www\.example\.com/

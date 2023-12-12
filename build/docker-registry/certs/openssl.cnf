@@ -1,0 +1,31 @@
+[req]
+distinguished_name = req_distinguished_name
+req_extensions = v3_req
+
+[req_distinguished_name]
+countryName = Country Name (2 letter code)
+countryName_default = CH
+stateOrProvinceName = State or Province Name (full name)
+stateOrProvinceName_default = GD
+localityName = Locality Name (eg, city)
+localityName_default = GZ
+organizationalUnitName  = Organizational Unit Name (eg, section)
+organizationalUnitName_default  = ORGZ
+commonName = Internet Widgits Ltd
+commonName_max  = 64
+
+[ v3_req ]
+# Extensions to add to a certificate request
+basicConstraints = CA:FALSE
+keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+subjectAltName = @alt_names
+
+[alt_names]
+# 改成自己的域名
+DNS.1 = *.registry.local
+#DNS.2 = helpdesk.example.org
+#DNS.3 = systems.example.net
+
+# 改成自己的ip
+IP.1 = 172.16.24.143
+IP.2 = 172.29.50.253

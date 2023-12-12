@@ -1,0 +1,48 @@
+# https://distribution.github.io/distribution/about/configuration/#list-of-configuration-options
+version: 0.1
+log:
+  level: warn #debug info warn 
+  formatter: text
+  accesslog:
+    disabled: true
+  fields:
+    service: registry
+storage:
+  cache:
+    blobdescriptor: inmemory #redis
+  filesystem:
+    rootdirectory: /tmp/var/lib/registry
+  delete:
+    enabled: true
+  # s3:
+
+############# 
+http:
+  addr: :5000
+  # prefix: /registry01/
+  secret: a-secret-for-local-development
+  headers:
+    X-Content-Type-Options: [nosniff]
+  # tls:
+  #   key: /path/to/x509/private
+  #   certificate: /path/to/x509/public
+  #   clientcas:
+  #     - /path/to/ca.pem
+  #     - /path/to/another/ca.pem
+auth:
+  htpasswd:
+    realm: basic-realm
+    path: /tmp/htpasswd.txt
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3
+
+# 拓展配置项
+extend:
+  httpaddr: ":8000" #http.addr开启tls模式时，额外开启http端口, ":0"则不开启
+  list: #首页列表
+    user: admin
+    pass: admin123
+    size: true
