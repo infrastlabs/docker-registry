@@ -122,13 +122,15 @@ type Configuration struct {
 	} `yaml:"http,omitempty"`
 
 
-
-	List struct {
-		// Apis string `yaml:"apis,omitempty"` 
-		User string `yaml:"user,omitempty"`
-		Pass string `yaml:"pass,omitempty"`
-		Size bool   `yaml:"size,omitempty"`
-	} `yaml:"list,omitempty"`
+	Extend struct {
+		HttpAddr string `yaml:"httpaddr,omitempty"`
+		List struct {
+			// Apis string `yaml:"apis,omitempty"` 
+			User string `yaml:"user,omitempty"`
+			Pass string `yaml:"pass,omitempty"`
+			Size bool   `yaml:"size,omitempty"`
+		} `yaml:"list,omitempty"`
+	} `yaml:"extend,omitempty"`
 }
 
 // v0_1Configuration is a Version 0.1 Configuration struct
