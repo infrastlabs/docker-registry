@@ -9,7 +9,7 @@ import (
 
 	"crypto/tls"
 	"encoding/json"
-	"flag"
+	// "flag"
 	"html/template"
 	"sort"
 	"strings"
@@ -28,14 +28,16 @@ import (
 )
 
 var (
-	//addr = flag.String("addr", ":8080", "ui address")
-	// apis = flag.String("api", "https://localhost:8143", "api address")
-	user = flag.String("user", "admin", "registry user")
-	pass = flag.String("pass", "admin123", "registry pass")
-	size = flag.Bool("size", true, "registry size") //or: req's param
-	//tout = flag.Duration("tout", time.Second, "api cache timeout")
+	// //addr = flag.String("addr", ":8080", "ui address")
+	// // apis = flag.String("api", "https://localhost:8143", "api address")
+	// user = flag.String("user", "admin", "registry user")
+	// pass = flag.String("pass", "admin123", "registry pass")
+	// size = flag.Bool("size", true, "registry size") //or: req's param
+	// //tout = flag.Duration("tout", time.Second, "api cache timeout")
+	
+	user, pass string
+	size bool
 	apis, host string // host:port of api server
-
 	conf2 *configuration.Configuration
 	tunnelDetailsMap  cmap.ConcurrentMap
 	countMap  cmap.ConcurrentMap
@@ -55,7 +57,7 @@ func syncDBEndpoint() {
 
 		countImgSize(conf2)
 
-		time.Sleep(10*time.Second) //60>3>20
+		time.Sleep(10*time.Second) //60>3>20 //TODO loop间隔可配
 	}
 
 	// tunnelDetailsMap.Set(key, tunnel)
@@ -75,7 +77,7 @@ func syncDBEndpoint() {
 }
 
 func parseArgs(config *configuration.Configuration) {
-	flag.Parse()
+	// flag.Parse()
 	//apis= config.List.Apis 
 	// apis= "http://localhost:8143"
 
@@ -83,9 +85,9 @@ func parseArgs(config *configuration.Configuration) {
 	/* *user= "admin" //config.List.User
 	*pass= "admin123" //config.List.Pass
 	*size= true //config.List.Size */
-	*user= config.List.User
-	*pass= config.List.Pass
-	*size= config.List.Size
+	user= config.Extend.List.User
+	pass= config.Extend.List.Pass
+	size= config.Extend.List.Size
 
 	//set apis
 	schema:= "http://"
@@ -126,7 +128,7 @@ func getClient(config *configuration.Configuration) (*http.Client) {
 func doGet(client *http.Client, uri string)(*http.Response, error){
 	url := apis + uri
 	req, err := http.NewRequest("GET", url, nil)
-	req.SetBasicAuth(*user, *pass)//设置需要认证的username和password
+	req.SetBasicAuth(user, pass)//设置需要认证的username和password
 	if err != nil {
 		panic(err)
 	}
@@ -243,8 +245,8 @@ var transport *http.Transport
 func goContainerregistryImageSize(imageTag, tlsCert string) (string, error) {
 	//auth remote.Option
 	auth := remote.WithAuth(authn.FromConfig(authn.AuthConfig{
-		Username: *user,
-		Password: *pass,
+		Username: user,
+		Password: pass,
 	}))
 	// https, skip_key_validate
 	if nil==transport { //
@@ -358,7 +360,7 @@ func countImgSize(config *configuration.Configuration) (error) {
 
 		// detailTags = append(detailTags, imgtag)
 		// tunnel := item.Val.(*portainer.TunnelDetails)
-		if true!=*size {
+		if true!=size {
 			// detailTags = append(detailTags, imgtag)
 		} else {
 			var imgSize string
@@ -377,11 +379,12 @@ func countImgSize(config *configuration.Configuration) (error) {
 }
 
 func imageList(w http.ResponseWriter, r *http.Request) {
-	/* _, err:= getRepoTags(conf2) //repoTags
+	// 展示列表前，把tags清单刷一遍(之后由loop取size)
+	_, err:= getRepoTags(conf2) //repoTags
 	if nil!=err {
 		w.Write([]byte("getRepoTags err:"+err.Error()))
 		return
-	} */
+	}
 
 	/* // config:= conf2
 	countImgSize(conf2) */
@@ -391,12 +394,15 @@ func imageList(w http.ResponseWriter, r *http.Request) {
 	// for _, imgtag := range repoTags {
 	for item := range tunnelDetailsMap.IterBuffered() {
 		imgtag:= item.Key
-		size:= item.Val.(string)
-		if ""==size {
-			size= "errSize"
+		imgsize:= item.Val.(string)
+		if ""==imgsize {
+			imgsize= "errSize"
 		}
-		// format: img:tag # arch:size | arch2:size2
-		one:= fmt.Sprintf("%s # %s", imgtag, size)
+		// format: img:tag # arch:imgsize | arch2:imgsize2
+		one:= fmt.Sprintf("%s # %s", imgtag, imgsize)
+		if true!=size {
+			one= imgtag
+		}
 		detailTags = append(detailTags, one)
 	}
 	sort.Strings(detailTags)
