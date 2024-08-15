@@ -1,0 +1,14 @@
+data
+registry.full.yml
+
+# certs
+certs/*.csr
+certs/*.srl
+certs/openssl.cnf*
+certs/test.registry.ssl*
+
+# 不支持反向选择
+# certs/*
+# !certs/genKey.sh
+# !certs/ca*
+# !certs/registry.local*
