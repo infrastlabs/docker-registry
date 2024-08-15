@@ -1,0 +1,22 @@
+.settings
+*.classpath
+*.project
+*.iml
+.idea
+.vscode
+
+*.vswp
+#*.docx
+
+# /build/
+/build/docker-registry/data
+/build/docker-registry/README.md
+# certs
+/build/docker-registry/certs/*
+!/build/docker-registry/certs/ca*
+!/build/docker-registry/certs/*.sh
+
+# docker-registry.tar.gz
+/build/docker-registry/docker-registry
+/build/docker-registry-*
+/build/unpack*
