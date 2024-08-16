@@ -39,19 +39,20 @@ var (
 	size bool
 	apis, host string // host:port of api server
 	conf2 *configuration.Configuration
-	tunnelDetailsMap  cmap.ConcurrentMap
+	tagsizeMap  cmap.ConcurrentMap
 	countMap  cmap.ConcurrentMap
 )
 
 // 后台同步imgListSize
 //  1.刷入所有列表img_ver；
 //  2.判断one.size是否就绪，无则读取;
-func syncDBEndpoint() {
+func doRefreshTagsize() {
 	for {
 		_, err:= getRepoTags(conf2) //repoTags
 		if nil!=err {
 			// w.Write([]byte("getRepoTags err:"+err.Error()))
 			// return
+			time.Sleep(2*time.Second) //avoid cpu 100%
 			continue
 		}
 
@@ -60,13 +61,13 @@ func syncDBEndpoint() {
 		time.Sleep(10*time.Second) //60>3>20 //TODO loop间隔可配
 	}
 
-	// tunnelDetailsMap.Set(key, tunnel)
-	/* if item, ok := service.tunnelDetailsMap.Get(key); ok {
+	// tagsizeMap.Set(key, tunnel)
+	/* if item, ok := service.tagsizeMap.Get(key); ok {
 		tunnelDetails := item.(*portainer.TunnelDetails)
 		return tunnelDetails
 	} */
 
-	/* for item := range service.tunnelDetailsMap.IterBuffered() {
+	/* for item := range service.tagsizeMap.IterBuffered() {
 		tunnel := item.Val.(*portainer.TunnelDetails)
 		if tunnel.Port == port {
 			return service.getUnusedPort()
@@ -151,6 +152,16 @@ func getRepoTags(config *configuration.Configuration) ([]string, error) {
 	//catalog获取仓库列表
 	uri:="/v2/_catalog"
 	rsp, err := doGet(client, uri)
+	
+	// 保证关闭连接. 不关闭连接将导致close-wait累积，最终占满端口。监控将报错:cannot assign requested address
+	//   在return前，定义defer做rsp的关闭,免mem未释放 占满内存
+	if rsp != nil { // 当请求失败，resp为nil时，直接defer会导致panic，因此需要先判断
+		defer rsp.Body.Close()
+	}
+	/* if err := rsp.Body.Close(); err != nil {
+		return nil, err
+	} */
+
 	if err != nil {
 		// panic(err)
 		// w.Write([]byte("RequestError, uri:"+uri))
@@ -168,14 +179,7 @@ func getRepoTags(config *configuration.Configuration) ([]string, error) {
 	if err := json.NewDecoder(rsp.Body).Decode(&catalog); err != nil {
 		return nil, err
 	}
-	// 当请求失败，resp为nil时，直接defer会导致panic，因此需要先判断
-	if rsp != nil {
-		// 保证关闭连接. 不关闭连接将导致close-wait累积，最终占满端口。监控将报错:cannot assign requested address
-		defer rsp.Body.Close()
-	}
-	/* if err := rsp.Body.Close(); err != nil {
-		return nil, err
-	} */
+	
 
 	//tags/list获取各img的标签列表
 	imgMap := make(map[string] []string, len(catalog.Repos)) //[]string >> map[string] []string
@@ -219,18 +223,18 @@ func getRepoTags(config *configuration.Configuration) ([]string, error) {
 	}
 	sort.Strings(repoTags)
 
-	/* if nil==tunnelDetailsMap {
-		tunnelDetailsMap= cmap.New()
+	/* if nil==tagsizeMap {
+		tagsizeMap= cmap.New()
 	} */
 	/* return &Service{
-		tunnelDetailsMap: cmap.New(), //ref pt's
+		tagsizeMap: cmap.New(), //ref pt's
 		dataStore:        dataStore,
 		shutdownCtx:      shutdownCtx,
 	} */
 
 	for _, imgtag := range repoTags {
-		if !tunnelDetailsMap.Has(imgtag) { //不存在时才put, 免val覆盖
-			tunnelDetailsMap.Set(imgtag, "") //nil> init ""
+		if !tagsizeMap.Has(imgtag) { //不存在时才put, 免val覆盖
+			tagsizeMap.Set(imgtag, "") //nil> init ""
 		}
 
 		// TODO; if img deleted > loop gMap drop non-exist
@@ -304,6 +308,8 @@ func goContainerregistryImageSize(imageTag, tlsCert string) (string, error) {
 	}
 	// refData := imageRefs[0]
 	var multiSize string
+	// DO archs sort排序
+	sizeArr:= []string{}
 	for _, imageRef:= range imageRefs {
 		ref, err:= name.ParseReference(imageRef.Digest) //refData.Digest
 		if err != nil {
@@ -323,11 +329,19 @@ func goContainerregistryImageSize(imageTag, tlsCert string) (string, error) {
 			size, _:= layer.Size()
 			imgSize += size
 		}
-		// multiSize+=fmt.Sprintf(imageRef.OS+"/"+imageRef.Arch+" size: "+ByteCountSI(imgSize))
-		// multiSize+=fmt.Sprintf("(%s/%s %s)", imageRef.OS, imageRef.Arch, ByteCountSI(imgSize))
-		multiSize+=fmt.Sprintf(" %s:%s |", imageRef.Arch, ByteCountSI(imgSize))
+		// // multiSize+=fmt.Sprintf(imageRef.OS+"/"+imageRef.Arch+" size: "+ByteCountSI(imgSize))
+		// // multiSize+=fmt.Sprintf("(%s/%s %s)", imageRef.OS, imageRef.Arch, ByteCountSI(imgSize))
+		// multiSize+=fmt.Sprintf(" %s:%s |", imageRef.Arch, ByteCountSI(imgSize))
+		sizeArr= append(sizeArr, fmt.Sprintf(" %s:%s", imageRef.Arch, ByteCountSI(imgSize)))
 	}
-	multiSize= multiSize[1:len(multiSize)-2] //drop last ", "
+	// 对字符串数组进行排序
+	sort.Strings(sizeArr)
+	// 打印排序后的数组
+	fmt.Println(sizeArr)
+
+	// multiSize= multiSize[1:len(multiSize)-2] //drop last "| "
+	// multiSize= fmt.Sprintf(" %s", sizeArr)
+	multiSize= strings.Join(sizeArr, " | ")
 	return multiSize, nil
 }
 
@@ -335,23 +349,27 @@ func countImgSize(config *configuration.Configuration) (error) {
 	//遍历各img所有tags的layer层信息（获取size）
 	// detailTags := make([]string, 0) //[]string
 	// for _, imgtag := range repoTags {
-	for item := range tunnelDetailsMap.IterBuffered() {
+	for item := range tagsizeMap.IterBuffered() {
 		imgtag:= item.Key
-		// val:= item.Val.(string)
-		cnt, exist:= countMap.Get(imgtag)
-		if !exist {
-			countMap.Set(imgtag, 1)
-			// continue //首次需要计算
-		} else {
-			// if ""!=val {
-			cnt2:= cnt.(int)
-			if cnt2<=5 { //10s * 5
-				// DO: ttl alive 5min?>> counts
-				countMap.Set(imgtag, cnt2 +1)
-				continue //跳过计算size
+		size0:= item.Val.(string)
+		
+		// 判断遍历计数:免每次都计算size;
+		if ""!=size0 { //size设置过，才做重复判断; 否则直接重算
+			cnt, exist:= countMap.Get(imgtag)
+			if !exist {
+				countMap.Set(imgtag, 1)
+				// continue //首次需要计算
 			} else {
-				// fmt.Printf("==reCountSize: %s\n", imgtag)
-				countMap.Set(imgtag, 1) //重置计数
+				// if ""!=val {
+				cnt2:= cnt.(int)
+				if cnt2<=5 { //10s * 5; 不超过5次 则continue跳过计算;(免imgtag重推)
+					// DO: ttl alive 5min?>> counts
+					countMap.Set(imgtag, cnt2 +1)
+					continue //跳过计算size
+				} else {
+					// fmt.Printf("==reCountSize: %s\n", imgtag)
+					countMap.Set(imgtag, 1) //重置计数; 并进入后续:重计算imgtag尺寸
+				}
 			}
 		}
 
@@ -371,7 +389,7 @@ func countImgSize(config *configuration.Configuration) (error) {
 			if nil!=err {
 				fmt.Println("err: "+err.Error())
 			}
-			tunnelDetailsMap.Set(imgtag, imgSize) //just replace the same key.
+			tagsizeMap.Set(imgtag, imgSize) //just replace the same key.
 		}
 	}
 
@@ -392,7 +410,7 @@ func imageList(w http.ResponseWriter, r *http.Request) {
 	//遍历各img所有tags的layer层信息（获取size）
 	detailTags := make([]string, 0) //[]string
 	// for _, imgtag := range repoTags {
-	for item := range tunnelDetailsMap.IterBuffered() {
+	for item := range tagsizeMap.IterBuffered() {
 		imgtag:= item.Key
 		imgsize:= item.Val.(string)
 		if ""==imgsize {
