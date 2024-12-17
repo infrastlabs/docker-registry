@@ -1,6 +1,12 @@
 #!/bin/bash
 cur=$(cd "$(dirname "$0")"; pwd)
 
+# ref _ct\fk-agent\_build.sh
+# apt -y install upx
+upx -V > /dev/null 2>&1
+errCode=$?
+test "0" != "$errCode" && sudo apt -y install upx
+
 # CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 #   go build -o docker-registry-x64 -v -ldflags "-s -w $flags" ./cmd/docker-registry/
 
@@ -16,11 +22,8 @@ onePack(){
       go build -o build/docker-registry-$arch -v -ldflags "-s -w $flags" ./cmd/docker-registry/
 
   cd $cur/../build/docker-registry
-    # upx --help > /dev/null 2>&1 && echo "upx installed, skip" || sudo apt install upx
-    # upx -7 ./psu -o /tmp/psu #段错误
-
-    # cd /tmp; tar -zcf $cur/psu-$version-$seq-$os.tar.gz
-    \cp -a ../docker-registry-$arch ./docker-registry;
+    upx -7 ../docker-registry-$arch -o ./docker-registry
+    # \cp -a ../docker-registry-$arch ./docker-registry;
     \cp -a ../../README.md ./; chmod +x *.sh
     tar --exclude-from=../../.tarignore -zcvf ../docker-registry-$version-$seq-$os-$arch.tar.gz *
 }
