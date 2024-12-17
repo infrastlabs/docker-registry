@@ -20,17 +20,18 @@ onePack(){
   cd $cur/..
     # go build -x -v -ldflags "-s -w $flags" ./cmd/registry/*.go
     CGO_ENABLED=0 GOOS=linux GOARCH=$arch \
-      go build -o build/docker-registry-$arch -v -ldflags "-s -w $flags" ./cmd/docker-registry/
+      go build -o build/bin/docker-registry-$arch -v -ldflags "-s -w $flags" ./cmd/docker-registry/
+    echo "errCode: $?"
 
-  \cp -a $cur/../build/docker-registry $cur/../build/docker-registry-$arch #cp for batchBuild
+  rm -rf $cur/../build/docker-registry-$arch; \cp -a $cur/../build/docker-registry $cur/../build/docker-registry-$arch #cp for batchBuild
   cd $cur/../build/docker-registry-$arch
-    rm -f ./docker-registry; upx -7 ../docker-registry-$arch -o ./docker-registry
+    rm -f ./docker-registry; upx -7 ../bin/docker-registry-$arch -o ./docker-registry
     # \cp -a ../docker-registry-$arch ./docker-registry;
     \cp -a ../../README.md ./; chmod +x *.sh
     tar --exclude-from=../../.tarignore -zcvf ../docker-registry-$version-$seq-$os-$arch.tar.gz *
-  # clear
-  rm -rf $cur/../build/docker-registry-$arch
-  rm -f ../docker-registry-$arch
+    # clear
+    # rm -f ../bin/docker-registry-$arch
+    rm -rf $cur/../build/docker-registry-$arch
 }
 onePack arm & #TODO batchMode> -o ./docker-registry
 onePack arm64 &
