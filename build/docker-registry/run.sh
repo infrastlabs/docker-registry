@@ -24,4 +24,7 @@ cd $cur
 # go run ./cmd/docker-registry/ serve $cur/registry.yml
 args="$@"
 test -z "$args" && args="serve $cur/registry.yml"
+
+# paramsView, start
+env |grep "^REGISTRY_"; echo "args: $args"
 exec ./docker-registry $args
