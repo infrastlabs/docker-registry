@@ -29,7 +29,7 @@ onePack(){
     tar --exclude-from=../../.tarignore -zcvf ../docker-registry-$version-$seq-$os-$arch.tar.gz *
     rm -f ../docker-registry-$arch
 }
-onePack arm
+onePack arm  #TODO batchMode> -o ./docker-registry
 onePack arm64
 onePack amd64
 
