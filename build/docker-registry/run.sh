@@ -1,5 +1,6 @@
 #!/bin/sh
-cur=$(cd "$(readlink $(dirname "$0"))"; pwd)
+# cur=$(cd "$(readlink $(dirname "$0"))"; pwd)
+cur=$(dirname $(readlink -f "$0"))
 
 # AUTH
 # export REGISTRY_AUTH=htpasswd
