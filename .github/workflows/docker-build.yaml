@@ -65,7 +65,8 @@ jobs:
           make_latest: true
           token: ${{ github.token }} #Defaults to ${{ github.token }}
           body: |
-            Automated release-2024 for tag ${{ github.ref }}          
+            Automated release-2024 for tag ${{ github.ref }}
+            - `docker run -it --rm --net=host registry.cn-shenzhen.aliyuncs.com/infrastlabs/docker-registry:latest`
           # append_body
           # generate_release_notes
           draft: false
