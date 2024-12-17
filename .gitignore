@@ -12,7 +12,8 @@
 /build/docker-registry/data
 /build/docker-registry/README.md
 # certs
-/build/docker-registry/certs/*
+/build/docker-registry/certs/*.csr
+/build/docker-registry/certs/openssl.cnf0
 !/build/docker-registry/certs/ca*
 !/build/docker-registry/certs/*.sh
 
