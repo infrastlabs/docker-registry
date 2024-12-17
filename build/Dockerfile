@@ -15,12 +15,13 @@ FROM registry.cn-shenzhen.aliyuncs.com/infrasync/library-alpine:3.13.12 AS files
     "linux/arm/v7") arch=arm   ;; \
   esac; \
   ls -lh /build/; \
-  registry=/rootfs/app/docker-registry; mkdir -p $registry /rootfs/bin/ /rootfs/etc/docker/registry/;  \
+  registry=/rootfs/app/docker-registry; mkdir -p $registry /rootfs/bin/ /rootfs/etc/docker/registry/ /rootfs/var/lib/registry/;  \
   tar -zxf /build/docker-registry-*-$arch.tar.gz -C $registry; \
-  find $registry -type f |sort; \
   # link
   ln -s /app/docker-registry/run.sh /rootfs/bin/registry; \
-  ln -s /app/docker-registry/registry.yml /rootfs/etc/docker/registry/config.yml
+  ln -s /app/docker-registry/registry.yml /rootfs/etc/docker/registry/config.yml; \
+  ln -s /var/lib/registry $registry/data; \
+  find /rootfs |sort;
 
 # ref https://gitee.com/g-golang/fk-distribution/blob/main/Dockerfile
 # FROM alpine:${ALPINE_VERSION}
