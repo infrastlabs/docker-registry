@@ -1,5 +1,5 @@
-#!/bin/bash
-cur=$(cd "$(dirname "$0")"; pwd)
+#!/bin/sh
+cur=$(cd "$(readlink $(dirname "$0"))"; pwd)
 
 # AUTH
 # export REGISTRY_AUTH=htpasswd
@@ -21,4 +21,6 @@ export REGISTRY_HTTP_TLS_KEY=$cur/certs/$domain.key
 
 cd $cur
 # go run ./cmd/docker-registry/ serve $cur/registry.yml
-exec ./docker-registry serve $cur/registry.yml
+args="$@"
+test -z "$args" && args="serve $cur/registry.yml"
+exec ./docker-registry $args
