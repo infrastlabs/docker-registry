@@ -1,6 +1,7 @@
 #!/bin/bash
 cur=$(cd "$(dirname "$0")"; pwd)
 
+apk add upx #alpine-go
 # ref _ct\fk-agent\_build.sh
 # apt -y install upx
 upx -V > /dev/null 2>&1
