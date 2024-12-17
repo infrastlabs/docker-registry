@@ -9,6 +9,8 @@
 #*.docx
 
 # /build/
+/build/bin
+/build/registry-data
 /build/docker-registry/data
 /build/docker-registry/README.md
 # certs
