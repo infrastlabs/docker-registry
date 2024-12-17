@@ -23,10 +23,11 @@ onePack(){
       go build -o build/docker-registry-$arch -v -ldflags "-s -w $flags" ./cmd/docker-registry/
 
   cd $cur/../build/docker-registry
-    upx -7 ../docker-registry-$arch -o ./docker-registry
+    rm -f ./docker-registry; upx -7 ../docker-registry-$arch -o ./docker-registry
     # \cp -a ../docker-registry-$arch ./docker-registry;
     \cp -a ../../README.md ./; chmod +x *.sh
     tar --exclude-from=../../.tarignore -zcvf ../docker-registry-$version-$seq-$os-$arch.tar.gz *
+    rm -f ../docker-registry-$arch
 }
 onePack arm
 onePack arm64
